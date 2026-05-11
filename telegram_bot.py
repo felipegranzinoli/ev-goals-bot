@@ -7,8 +7,8 @@ load_dotenv()
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
+
 def enviar_mensagem(texto):
-    """Envia mensagem para o Telegram."""
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         payload = {
@@ -24,43 +24,50 @@ def enviar_mensagem(texto):
 
 
 def formatar_alerta(op):
-    """Formata a mensagem de alerta para o Telegram."""
-    motivos = "\n".join([f"  ✅ {m}" for m in op["motivos"]])
-    prob            = op.get("prob", 0)
-    oj              = op.get("odd_justa", 0)
-    odd_mercado     = op.get("odd_mercado", 0)
-    gols_necessarios = op.get("gols_necessarios", 1)
+    prob         = op.get("prob", 0)
+    oj           = op.get("odd_justa", 0)
+    odd_mercado  = op.get("odd_mercado", 0)
+    gols_nec     = op.get("gols_necessarios", 1)
+    placar       = f"{op['placar_home']} x {op['placar_away']}"
 
+    # Linha de ação — o que fazer
     if odd_mercado > 0:
-        odd_linha = (
-            f"📐 Precisa de <b>{gols_necessarios} gol(s) adicional(is)</b>\n"
-            f"📊 Probabilidade: <b>{round(prob*100,1)}%</b>\n"
-            f"⚖️ Odd justa: <b>{oj}</b>\n"
-            f"💰 Odd mercado: <b>{odd_mercado}</b> ✅ ENTRAR\n"
+        ev_pct = round((odd_mercado * prob - 1) * 100, 1)
+        acao = (
+            f"✅ <b>ENTRAR</b> — odd {odd_mercado} "
+            f"(justa {oj} | EV +{ev_pct}%)"
         )
     else:
-        odd_linha = (
-            f"📐 Precisa de <b>{gols_necessarios} gol(s) adicional(is)</b>\n"
-            f"📊 Probabilidade: <b>{round(prob*100,1)}%</b>\n"
-            f"⚖️ Odd justa: <b>{oj}</b>\n"
-            f"💰 Entre se odd ≥ <b>{oj}</b> na casa\n"
-        )
+        acao = f"🔍 <b>Verificar</b> — entre se odd ≥ <b>{oj}</b>"
+
+    # Contexto rápido do jogo
+    diff = op['placar_home'] - op['placar_away']
+    if diff > 0:
+        situacao = f"{op['away']} perdendo, pressionando"
+    elif diff < 0:
+        situacao = f"{op['home']} perdendo, pressionando"
+    else:
+        situacao = "Empate, ambos atacando"
 
     return (
-        f"🚨 <b>OPORTUNIDADE EV+ DETECTADA</b>\n\n"
+        f"🚨 <b>APOSTA EV+</b> — Score {op['score']}/100\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"⚽ <b>{op['home']} x {op['away']}</b>\n"
-        f"🏆 {op['liga']}\n"
-        f"⏱ Minuto: {op['minuto']}'\n"
-        f"📊 Placar: {op['placar_home']} x {op['placar_away']}\n"
+        f"🏆 {op['liga']}  |  {op['minuto']}'  |  {placar}\n"
+        f"📌 {situacao}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
         f"🎯 Mercado: <b>{op['mercado']}</b>\n"
-        f"{odd_linha}"
-        f"📈 Score EV: <b>{op['score']}/100</b>\n\n"
-        f"<b>Motivos:</b>\n{motivos}"
+        f"📊 Prob: <b>{round(prob*100,1)}%</b>  |  "
+        f"Odd justa: <b>{oj}</b>\n"
+        f"{acao}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>Chutes: {op.get('chutes_totais',0)} | "
+        f"Escanteios: {op.get('escanteios',0)} | "
+        f"xG: {op.get('xg',0)}</i>"
     )
 
 
 def enviar_alerta(op):
-    """Envia alerta formatado de uma oportunidade."""
     mensagem = formatar_alerta(op)
     sucesso = enviar_mensagem(mensagem)
     if sucesso:
@@ -70,9 +77,8 @@ def enviar_alerta(op):
 
 
 def enviar_teste():
-    """Envia mensagem de teste para confirmar conexão."""
     return enviar_mensagem(
         "🤖 <b>Bot EV+ Gols iniciado!</b>\n\n"
-        "Monitorando jogos ao vivo com dados BSD + API-Football.\n"
-        "Quando detectar uma oportunidade EV+, aviso aqui! ⚽"
+        "Monitorando jogos ao vivo — BSD + API-Football.\n"
+        "Aviso quando detectar oportunidade EV+! ⚽"
     )
